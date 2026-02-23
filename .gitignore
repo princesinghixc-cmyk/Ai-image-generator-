@@ -1,0 +1,6 @@
+venv/
+stable-diffusion-webui/
+ComfyUI_windows_portable_nvidia_cu126/
+.vscode/
+__pycache__/
+*.pyc

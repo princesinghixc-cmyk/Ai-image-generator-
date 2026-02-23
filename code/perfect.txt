@@ -1,0 +1,172 @@
+import requests
+import time
+import re
+from telegram import Update
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+
+# ================= CONFIG =================
+TOKEN = "8593813639:AAGL-O4ZeKS3Xk_K9hX5tyfDS4zR4gZNK3E"
+COMFY_URL = "http://127.0.0.1:8188"
+# ==========================================
+
+# 🔞 NSFW Block Words
+BLOCKED_WORDS = [
+    "nude", "naked", "sex", "porn", "nsfw", "boobs", "breast",
+    "ass", "butt", "pussy", "penis", "vagina", "xxx",
+    "hardcore", "adult", "erotic", "onlyfans"
+]
+
+# ❌ Slang / Cheap Words
+BAD_WORDS = [
+    "sexy", "hot girl", "item", "babe", "baby",
+    "fuck", "fucking", "slut", "bitch"
+]
+
+
+# ✅ Strict English Sentence Validation
+def is_valid_english_prompt(text):
+    # Allow only English letters, numbers, spaces, comma and dot
+    if not re.fullmatch(r"[A-Za-z0-9 ,.]+", text):
+        return False
+
+    # Must contain at least 3 words
+    if len(text.split()) < 3:
+        return False
+
+    return True
+
+
+# 🔞 Check for blocked content
+def contains_blocked_words(text):
+    text = text.lower()
+    for word in BLOCKED_WORDS + BAD_WORDS:
+        if word in text:
+            return True
+    return False
+
+
+def generate_image(prompt_text):
+
+    workflow = {
+        "3": {
+            "class_type": "CheckpointLoaderSimple",
+            "inputs": {
+                "ckpt_name": "realisticVisionV60B1_v51HyperVAE.safetensors"
+            }
+        },
+        "4": {
+            "class_type": "EmptyLatentImage",
+            "inputs": {
+                "width": 512,
+                "height": 512,
+                "batch_size": 1
+            }
+        },
+        "5": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": prompt_text,
+                "clip": ["3", 1]
+            }
+        },
+        "6": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": "blurry, low quality, distorted",
+                "clip": ["3", 1]
+            }
+        },
+        "7": {
+            "class_type": "KSampler",
+            "inputs": {
+                "model": ["3", 0],
+                "positive": ["5", 0],
+                "negative": ["6", 0],
+                "latent_image": ["4", 0],
+                "seed": int(time.time() * 1000),
+                "steps": 30,
+                "cfg": 7.5,
+                "sampler_name": "dpmpp_2m",
+                "scheduler": "karras",
+                "denoise": 1
+            }
+        },
+        "8": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "vae-ft-mse-840000-ema-pruned.ckpt"
+            }
+        },
+        "9": {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": ["7", 0],
+                "vae": ["8", 0]
+            }
+        },
+        "10": {
+            "class_type": "SaveImage",
+            "inputs": {
+                "images": ["9", 0],
+                "filename_prefix": "telegram"
+            }
+        }
+    }
+
+    response = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow})
+    response.raise_for_status()
+    prompt_id = response.json()["prompt_id"]
+
+    while True:
+        history = requests.get(f"{COMFY_URL}/history/{prompt_id}").json()
+        if prompt_id in history:
+            break
+        time.sleep(0.2)
+
+    image_filename = list(history[prompt_id]["outputs"].values())[0]["images"][0]["filename"]
+
+    image_data = requests.get(
+        f"{COMFY_URL}/view?filename={image_filename}&type=output"
+    ).content
+
+    return image_data
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text.strip()
+
+    # 🌍 Strict English Check
+    if not is_valid_english_prompt(user_text):
+        await update.message.reply_text(
+            "❌ Invalid prompt. Use proper English sentence only (minimum 3 words)."
+        )
+        return
+
+    # 🔞 Unsafe Content Check
+    if contains_blocked_words(user_text):
+        await update.message.reply_text(
+            "❌ Inappropriate or unsafe content detected."
+        )
+        return
+
+    await update.message.reply_text("⚡ Generating image...")
+
+    try:
+        image = generate_image(user_text)
+        await update.message.reply_photo(photo=image)
+    except Exception:
+        await update.message.reply_text("❌ Failed to generate image.")
+
+
+app = (
+    ApplicationBuilder()
+    .token(TOKEN)
+    .read_timeout(120)
+    .write_timeout(120)
+    .build()
+)
+
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+print("🚀 Public Bot running (Strict English + Safe Mode)...")
+app.run_polling()
