@@ -6,9 +6,9 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 
 # ================= CONFIG =================
-TOKEN = "8593813639:AAGL-O4ZeKS3Xk_K9hX5tyfDS4zR4gZNK3E"
-COMFY_URL = "http://127.0.0.1:8188"
-ADMIN_ID = 7177843812  # <-- apna Telegram user ID daalo
+TOKEN = "8593E"
+COMFY_URL = "http:"
+ADMIN_ID = 7152425  # <-- apna Telegram user ID daalo
 FREE_DAILY_LIMIT = 10
 # ==========================================
 
