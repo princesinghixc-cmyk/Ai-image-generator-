@@ -8,16 +8,16 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTyp
 # ================= CONFIG =================
 TOKEN = "8593E"
 COMFY_URL = "http:"
-ADMIN_ID = 7152425  # <-- apna Telegram user ID daalo
-FREE_DAILY_LIMIT = 10
+ADMIN_ID = 7152425  
+FREE_DAILY_LIMIT = 100
 # ==========================================
 
-# In-memory usage tracking
+
 user_usage = {}
 
 # 🔞 Block Words
 BLOCKED_WORDS = [
-    "nude","gay",naked", "sex", "porn", "nsfw",
+    "nude","gay","naked", "sex", "porn", "nsfw",
     "boobs", "breast", "ass", "pussy", "xxx"
 ]
 
@@ -138,7 +138,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id != 7177843812:
         if not check_daily_limit(user_id):
-            await update.message.reply_text("🚫 Daily free limit reached (1000000000000000 images). Come back tomorrow.")
+            await update.message.reply_text("🚫 Daily free limit reached (100 images). Come back tomorrow.")
             return
 
     enhanced_prompt = enhance_prompt(user_text)
@@ -155,5 +155,5 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-print("🚀 Bot running with Monetization + Prompt Enhancer...")
+print("🚀 Bot running ...")
 app.run_polling()
